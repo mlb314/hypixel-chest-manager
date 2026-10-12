@@ -4,6 +4,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write   # needed to publish the release
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -20,3 +23,16 @@ jobs:
         with:
           name: hypixel-chest-manager-jar
           path: build/libs/
+
+      # Publish the jar on the Releases page (not for pull requests).
+      # Keeps one rolling release called "latest" that always holds the newest build.
+      - name: publish release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          JAR=$(ls build/libs/*.jar | grep -v -- '-sources' | head -1)
+          gh release delete latest --cleanup-tag --yes || true
+          gh release create latest "$JAR" \
+            --title "Latest build" \
+            --notes "Automatic build of commit ${GITHUB_SHA::7}. Needs Minecraft 26.1.2, Fabric Loader and Fabric API 0.145.4+26.1.2."
