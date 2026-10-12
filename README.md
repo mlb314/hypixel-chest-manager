@@ -16,9 +16,15 @@ Client-side Fabric mod for Minecraft **26.1.2**. Remembers what is in your Hypix
 
 Data is in `config/hypixel-chest-manager.json`. You can edit the `presets` and `tracked` (menu titles to auto-remember, matched by "contains") lists there.
 
-## Build
-JDK 25 required. `./gradlew build`, jar in `build/libs/`. Needs Fabric Loader 0.19.1+ and Fabric API 0.145.4+26.1.2.
-No Gradle wrapper is included: create the repo from the official Fabric template and replace its `src/`, `build.gradle`, `gradle.properties`, `settings.gradle`, or run `gradle wrapper`.
+## Build (no tools needed on your PC)
+1. Upload this folder to a new GitHub repo.
+2. Open the repo's **Actions** tab. The `build` workflow runs automatically (or press *Run workflow*).
+3. When it turns green, open the run and download **hypixel-chest-manager-jar** at the bottom. Inside, use the jar without `-sources` in its name.
+4. Put it in your `mods` folder with Fabric Loader 0.19.1+ and Fabric API 0.145.4+26.1.2.
+
+If the run is red, open it and copy the error text; that is all that is needed to fix it.
+
+Local build (optional): JDK 25, then `./gradlew build`.
 
 ## If it fails to compile (26.1 is new)
 - `Screens.getButtons(screen)` in `ChestPanel` (adds widgets to existing screens)
