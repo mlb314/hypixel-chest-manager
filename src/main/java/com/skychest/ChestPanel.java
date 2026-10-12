@@ -29,7 +29,7 @@ final class ChestPanel {
         Button search = Button.builder(Component.literal("Search"),
                 b -> Minecraft.getInstance().setScreen(new SearchScreen(screen)))
                 .bounds(left, top + imgH + 4, 52, 16).build();
-        Screens.getButtons(screen).add(search);
+        Screens.getWidgets(screen).add(search);
         if (chest) build(screen);
     }
 
@@ -39,13 +39,13 @@ final class ChestPanel {
             Minecraft.getInstance().execute(() -> build(screen)); // rebuild after the click finishes
         }).bounds(x, y, w, 16).build();
         b.active = enabled;
-        Screens.getButtons(screen).add(b);
+        Screens.getWidgets(screen).add(b);
         panel.add(b);
         return b;
     }
 
     static void build(Screen screen) {
-        Screens.getButtons(screen).removeAll(panel);
+        Screens.getWidgets(screen).removeAll(panel);
         panel.clear();
         ChestMenu cm = (ChestMenu) ((AbstractContainerScreen<?>) screen).getMenu();
         int imgH = 114 + cm.getRowCount() * 18;

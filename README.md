@@ -27,7 +27,7 @@ If the run is red, open it and copy the error text; that is all that is needed t
 Local build (optional): JDK 25, then `./gradlew build`.
 
 ## If it fails to compile (26.1 is new)
-- `Screens.getButtons(screen)` in `ChestPanel` (adds widgets to existing screens)
+- `Screens.getWidgets(screen)` in `ChestPanel` (adds widgets to existing screens)
 - `Gizmos`/`GizmoStyle` and `LevelRenderEvents.END_EXTRACTION` in `SkyChestMod` (highlight; try `DEBUG_RENDER`)
 - `CompoundTag.getStringOr`, `CustomData.copyTag` (SkyBlock id)
 - `PlayerInfo.getTabListDisplayName`, `getListedOnlinePlayers` (area detection)
