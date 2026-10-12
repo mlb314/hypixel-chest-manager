@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "hypixel-chest-manager",
+  "version": "${version}",
+  "name": "Hypixel Chest Manager",
+  "description": "Manual chest and storage tracker for Hypixel SkyBlock. Find where any item is, highlighted in the world.",
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": { "client": ["com.skychest.SkyChestMod"] },
+  "depends": {
+    "fabricloader": ">=0.19.1",
+    "minecraft": "~26.1",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
