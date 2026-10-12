@@ -19,7 +19,8 @@ Data is in `config/hypixel-chest-manager.json`. You can edit the `presets` and `
 ## Build (no tools needed on your PC)
 1. Upload this folder to a new GitHub repo.
 2. Open the repo's **Actions** tab. The `build` workflow runs automatically (or press *Run workflow*).
-3. When it turns green, open the run and download **hypixel-chest-manager-jar** at the bottom. Inside, use the jar without `-sources` in its name.
+3. When it turns green, open the **Releases** page (right-hand side of the repo's front page) and download the jar from **Latest build**. It is replaced on every new build.
+   (The same jar is also attached to the run itself under *Artifacts*.)
 4. Put it in your `mods` folder with Fabric Loader 0.19.1+ and Fabric API 0.145.4+26.1.2.
 
 If the run is red, open it and copy the error text; that is all that is needed to fix it.
