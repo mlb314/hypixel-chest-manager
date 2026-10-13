@@ -61,9 +61,9 @@ final class SearchBar {
         w.add(x); mine.add(x); return x;
     }
 
-    /** left/top/h describe the container window (176 wide). */
-    static void attach(Screen screen, int left, int top, int h) {
-        scr = screen; L = left; T = top; H = h;
+    /** left/winTop/h describe the container window (176 wide). */
+    static void attach(Screen screen, int left, int winTop, int h) {
+        scr = screen; L = left; T = winTop; H = h;
         rebuild(screen);
 
         // Without this, typing "e" would close the inventory. Keys go to our box while it is focused.
