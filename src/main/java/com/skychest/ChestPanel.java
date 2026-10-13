@@ -18,7 +18,7 @@ import static com.skychest.SkyChestMod.*;
 
 /**
  * Layout keeps to the centre column (the inventory's own width) because mods like Firmament use the
- * left and right of the screen. The search bar sits below the window, the chest panel above it.
+ * left and right of the screen. The chest panel sits above the window; the search tab is on the right.
  * S.edgeGap leaves room for quick-nav tab strips around the window.
  */
 final class ChestPanel {
@@ -34,7 +34,7 @@ final class ChestPanel {
 
     static void attach(Screen screen, boolean chest) {
         int[] g = win(screen, chest);
-        SearchBar.attach(screen, g[0], g[1] + g[2] + S.edgeGap);
+        SearchBar.attach(screen, g[0], g[1], g[2]);
         if (chest) build(screen);
     }
 

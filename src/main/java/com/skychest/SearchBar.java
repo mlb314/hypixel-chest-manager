@@ -4,9 +4,12 @@ import com.skychest.ChestStore.Item;
 import com.skychest.ChestStore.Stash;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -15,51 +18,53 @@ import java.util.*;
 import static com.skychest.SkyChestMod.*;
 
 /**
- * Inline search bar under the inventory (same idea as Firmament's bar).
- * Type to see matching items (Tab autocompletes, Enter picks the top one), pick an item to see every
- * place it is stored. Click an island chest to highlight it for 90s. The button on the right
- * cycles a preset filter (All, Farming, Mining...).
+ * A slide-out search tab on the LEFT of the inventory/chest window.
+ * Click the small "<" tab to open the panel: search box, filter, sort, results, pager.
+ * Type to see matching items (Tab autocompletes, Enter picks), pick one to see every place it is stored.
+ * Click an island chest to highlight it for 90s.
  */
 final class SearchBar {
+    static final int PW = 150;                 // panel width in GUI px
+    static boolean open, sortAz;
     static String query = "", chosen, notice, top;
-    static int fi;
+    static int fi, page, L, T, H, maxRows = 5;
     static EditBox box;
     static Screen scr, hooked;
-    static int maxRows = 5;
-    static final Button[] rows = new Button[8];
-    static final Runnable[] acts = new Runnable[8];
+    static Button prev, next, pageLabel;
+    static final Button[] rows = new Button[12];
+    static final Runnable[] acts = new Runnable[12];
+    static final List<AbstractWidget> mine = new ArrayList<>();
 
     record Row(String text, boolean active, Runnable act) { }
+
+    /** Dark panel with a light frame. Active, so clicks on it never fall through to the world. */
+    static final class Backdrop extends AbstractWidget {
+        Backdrop(int x, int y, int w, int h) { super(x, y, w, h, Component.empty()); }
+
+        @Override
+        protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+            int x = getX(), y = getY(), x2 = x + this.width, y2 = y + this.height;
+            g.fillGradient(x, y, x2, y2, 0xFF000000, 0xFF000000);
+            g.fillGradient(x + 1, y + 1, x2 - 1, y2 - 1, 0xFFC6C6C6, 0xFFC6C6C6);
+            g.fillGradient(x + 4, y + 4, x2 - 4, y2 - 4, 0xFF373737, 0xFF373737);
+        }
+
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput builder) { }
+    }
 
     static String filter() {
         return fi <= 0 || fi > S.presets.size() ? null : S.presets.get(fi - 1);
     }
 
-    static void attach(Screen screen, int x, int y) {
-        scr = screen;
-        List<AbstractWidget> w = Screens.getWidgets(screen);
-        box = new EditBox(Screens.getFont(screen), x, y, 118, 16, Component.literal("Search"));
-        box.setMaxLength(40);
-        box.setHint(Component.literal("Search all chests"));
-        box.setValue(query);
-        box.setResponder(s -> { query = s; chosen = null; notice = null; refresh(); });
-        w.add(box);
+    private static <W extends AbstractWidget> W add(List<AbstractWidget> w, W x) {
+        w.add(x); mine.add(x); return x;
+    }
 
-        Button fb = Button.builder(Component.literal(filter() == null ? "All" : filter()), b -> {
-            fi = (fi + 1) % (S.presets.size() + 1);
-            b.setMessage(Component.literal(filter() == null ? "All" : filter()));
-            refresh();
-        }).bounds(x + 120, y, 56, 16).build();
-        w.add(fb);
-
-        maxRows = Math.max(2, Math.min(rows.length, (screen.height - (y + 18) - 24) / 14));
-        for (int i = 0; i < rows.length; i++) {
-            final int idx = i;
-            rows[i] = Button.builder(Component.empty(), b -> { if (acts[idx] != null) acts[idx].run(); })
-                    .bounds(x, y + 18 + i * 14, 176, 14).build();
-            rows[i].visible = false;
-            if (i < maxRows) w.add(rows[i]);
-        }
+    /** left/top/h describe the container window (176 wide). */
+    static void attach(Screen screen, int left, int top, int h) {
+        scr = screen; L = left; T = top; H = h;
+        rebuild(screen);
 
         // Without this, typing "e" would close the inventory. Keys go to our box while it is focused.
         if (hooked != screen) {
@@ -74,13 +79,66 @@ final class SearchBar {
                 }
                 if (k == 257 || k == 335) {                             // Enter: pick first row
                     for (int i = 0; i < maxRows; i++)
-                        if (rows[i].visible && rows[i].active && acts[i] != null) { acts[i].run(); break; }
+                        if (rows[i] != null && rows[i].visible && rows[i].active && acts[i] != null) { acts[i].run(); break; }
                     return false;
                 }
                 box.keyPressed(ev);
                 return false;
             });
         }
+    }
+
+    static void rebuild(Screen screen) {
+        List<AbstractWidget> w = Screens.getWidgets(screen);
+        w.removeAll(mine); mine.clear(); box = null;
+
+        Button tab = Button.builder(Component.literal(open ? ">" : "<"), b -> {
+            open = !open;
+            Minecraft.getInstance().execute(() -> rebuild(screen)); // rebuild after the click finishes
+        }).bounds(L - 16, T + 4, 14, 30).build();
+
+        if (!open) { add(w, tab); return; }
+
+        int px = Math.max(2, L - 18 - PW);
+        add(w, new Backdrop(px, T, PW, H));
+        add(w, tab);
+        int ix = px + 5, iw = PW - 10;
+
+        box = add(w, new EditBox(Screens.getFont(screen), ix, T + 5, iw, 16, Component.literal("Search")));
+        box.setMaxLength(40);
+        box.setHint(Component.literal("Search all chests"));
+        box.setValue(query);
+        box.setResponder(s -> { query = s; chosen = null; notice = null; page = 0; refresh(); });
+
+        add(w, Button.builder(Component.literal("Filter: " + (filter() == null ? "All" : filter())), b -> {
+            fi = (fi + 1) % (S.presets.size() + 1);
+            page = 0;
+            b.setMessage(Component.literal("Filter: " + (filter() == null ? "All" : filter())));
+            refresh();
+        }).bounds(ix, T + 23, iw, 16).build());
+
+        add(w, Button.builder(Component.literal("Sort: " + (sortAz ? "A-Z" : "Most")), b -> {
+            sortAz = !sortAz;
+            page = 0;
+            b.setMessage(Component.literal("Sort: " + (sortAz ? "A-Z" : "Most")));
+            refresh();
+        }).bounds(ix, T + 41, iw, 16).build());
+
+        int ry = T + 61;
+        maxRows = Math.max(3, Math.min(rows.length, (H - 61 - 22 - 4) / 14));
+        for (int i = 0; i < rows.length; i++) {
+            final int idx = i;
+            rows[i] = Button.builder(Component.empty(), b -> { if (acts[idx] != null) acts[idx].run(); })
+                    .bounds(ix, ry + i * 14, iw, 14).build();
+            rows[i].visible = false;
+            if (i < maxRows) add(w, rows[i]);
+        }
+
+        int by = T + H - 21;
+        prev = add(w, Button.builder(Component.literal("<"), b -> { page--; refresh(); }).bounds(ix, by, 20, 16).build());
+        pageLabel = add(w, Button.builder(Component.literal("1/1"), b -> { }).bounds(ix + 22, by, iw - 44, 16).build());
+        pageLabel.active = false;
+        next = add(w, Button.builder(Component.literal(">"), b -> { page++; refresh(); }).bounds(ix + iw - 20, by, 20, 16).build());
         refresh();
     }
 
@@ -88,52 +146,67 @@ final class SearchBar {
         return i.name.toLowerCase().contains(q) || i.id.toLowerCase().contains(q.replace(' ', '_'));
     }
 
+    private record Ent(String label, int count, Runnable act) { }
+
     static void refresh() {
+        if (box == null) return;
         for (int i = 0; i < rows.length; i++) { if (rows[i] != null) rows[i].visible = false; acts[i] = null; }
         top = null;
         String q = query.trim().toLowerCase(), cat = filter();
-        List<Row> list = new ArrayList<>();
+        List<Row> pinned = new ArrayList<>();
+        List<Ent> ents = new ArrayList<>();
+        String emptyMsg = null;
 
         if (chosen != null) {
-            list.add(new Row("< " + chosen, true, () -> { chosen = null; notice = null; refresh(); }));
-            if (notice != null) list.add(new Row(notice, false, null));
-            Map<Stash, Integer> tot = new HashMap<>();
+            pinned.add(new Row("< " + chosen, true, () -> { chosen = null; notice = null; page = 0; refresh(); }));
+            if (notice != null) pinned.add(new Row(notice, false, null));
             for (Stash s : S.stashes) {
                 if (cat != null && !cat.equals(s.category)) continue;
                 int t = 0;
                 for (Item i : s.items) if (i.name.equalsIgnoreCase(chosen)) t += i.count;
-                if (t > 0) tot.put(s, t);
+                if (t > 0) ents.add(new Ent(s.gui ? s.name : s.name + " [" + s.area + "]", t, () -> pick(s)));
             }
-            List<Stash> where = new ArrayList<>(tot.keySet());
-            where.sort((a, b) -> tot.get(b) - tot.get(a));
-            for (Stash s : where)
-                list.add(new Row(fmt(tot.get(s)) + "x " + (s.gui ? s.name : s.name + " [" + s.area + "]"), true, () -> pick(s)));
-            if (where.isEmpty()) list.add(new Row("Not in this filter", false, null));
+            if (ents.isEmpty()) emptyMsg = "Not in this filter";
         } else if (!q.isEmpty()) {
             Map<String, Integer> names = new HashMap<>();
             for (Stash s : S.stashes) {
                 if (cat != null && !cat.equals(s.category)) continue;
                 for (Item i : s.items) if (matches(i, q)) names.merge(i.name, i.count, Integer::sum);
             }
-            List<Map.Entry<String, Integer>> es = new ArrayList<>(names.entrySet());
-            es.sort((a, b) -> b.getValue() - a.getValue());
-            for (var e : es) {
+            int best = -1;
+            for (var e : names.entrySet()) {
                 String n = e.getKey();
-                if (top == null) top = n;
-                list.add(new Row(fmt(e.getValue()) + "x " + n, true, () -> { chosen = n; notice = null; refresh(); }));
+                if (e.getValue() > best) { best = e.getValue(); top = n; }
+                ents.add(new Ent(n, e.getValue(), () -> { chosen = n; notice = null; page = 0; refresh(); }));
             }
-            if (es.isEmpty()) list.add(new Row("Nothing found in tracked chests", false, null));
+            if (ents.isEmpty()) emptyMsg = "Nothing found in tracked chests";
         } else {
-            list.add(new Row("Search every tracked chest (Tab completes)", false, null));
+            emptyMsg = "Type an item name";
         }
 
-        for (int i = 0; i < Math.min(list.size(), maxRows); i++) {
-            Row r = list.get(i);
+        if (sortAz) ents.sort(Comparator.comparing(e -> e.label().toLowerCase()));
+        else ents.sort((a, b) -> b.count() - a.count());
+
+        List<Row> list = new ArrayList<>();
+        for (Ent e : ents) list.add(new Row(fmt(e.count()) + "x " + e.label(), true, e.act()));
+        if (emptyMsg != null) list.add(new Row(emptyMsg, false, null));
+
+        int per = Math.max(1, maxRows - pinned.size());
+        int pages = Math.max(1, (list.size() + per - 1) / per);
+        page = Math.max(0, Math.min(page, pages - 1));
+
+        List<Row> show = new ArrayList<>(pinned);
+        show.addAll(list.subList(page * per, Math.min(list.size(), page * per + per)));
+        for (int i = 0; i < Math.min(show.size(), maxRows); i++) {
+            Row r = show.get(i);
             rows[i].setMessage(Component.literal(r.text()));
             rows[i].active = r.active();
             rows[i].visible = true;
             acts[i] = r.act();
         }
+        pageLabel.setMessage(Component.literal((page + 1) + "/" + pages));
+        prev.active = page > 0;
+        next.active = page < pages - 1;
     }
 
     static void pick(Stash s) {
