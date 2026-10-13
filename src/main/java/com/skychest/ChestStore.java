@@ -35,6 +35,7 @@ public final class ChestStore {
     public List<String> presets = new ArrayList<>(List.of("Farming", "Mining", "Minions", "Slayers", "Dragons", "Fishing", "Foraging", "Combat", "Misc"));
     public String area = "Private Island";
     public int edgeGap = 28;                           // GUI px kept free above/below the inventory for other mods' tab strips
+    public int tabY = 36;                              // how far down the search tab sits from the window top (GUI px)
     public boolean anyServer;                          // debug: work outside Hypixel
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();

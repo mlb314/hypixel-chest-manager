@@ -37,12 +37,24 @@ final class SearchBar {
 
     record Row(String text, boolean active, Runnable act) { }
 
-    /** Dark panel with a light frame. Active, so clicks on it never fall through to the world. */
-    static final class Backdrop extends AbstractWidget {
-        Backdrop(int x, int y, int w, int h) { super(x, y, w, h, Component.empty()); }
+    /**
+     * draw=true: the dark panel with a light frame. It is added FIRST (drawn underneath) and is inactive,
+     * so it never steals clicks from the box/buttons above it.
+     * draw=false: an invisible, active catcher added LAST, so clicks on empty panel space are swallowed
+     * and never fall through to the container (which would drop the item on your cursor).
+     */
+    static final class Pane extends AbstractWidget {
+        final boolean draw;
+
+        Pane(int x, int y, int w, int h, boolean draw) {
+            super(x, y, w, h, Component.empty());
+            this.draw = draw;
+            this.active = !draw;
+        }
 
         @Override
         protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+            if (!draw) return;
             int x = getX(), y = getY(), x2 = x + this.width, y2 = y + this.height;
             g.fillGradient(x, y, x2, y2, 0xFF000000, 0xFF000000);
             g.fillGradient(x + 1, y + 1, x2 - 1, y2 - 1, 0xFFC6C6C6, 0xFFC6C6C6);
@@ -95,12 +107,12 @@ final class SearchBar {
         Button tab = Button.builder(Component.literal(open ? ">" : "<"), b -> {
             open = !open;
             Minecraft.getInstance().execute(() -> rebuild(screen)); // rebuild after the click finishes
-        }).bounds(L - 16, T + 4, 14, 30).build();
+        }).bounds(L - 16, T + S.tabY, 14, 30).build();
 
         if (!open) { add(w, tab); return; }
 
         int px = Math.max(2, L - 18 - PW);
-        add(w, new Backdrop(px, T, PW, H));
+        add(w, new Pane(px, T, PW, H, true));
         add(w, tab);
         int ix = px + 5, iw = PW - 10;
 
@@ -139,6 +151,7 @@ final class SearchBar {
         pageLabel = add(w, Button.builder(Component.literal("1/1"), b -> { }).bounds(ix + 22, by, iw - 44, 16).build());
         pageLabel.active = false;
         next = add(w, Button.builder(Component.literal(">"), b -> { page++; refresh(); }).bounds(ix + iw - 20, by, 20, 16).build());
+        add(w, new Pane(px, T, PW, H, false)); // last: click catcher
         refresh();
     }
 
@@ -167,11 +180,11 @@ final class SearchBar {
                 if (t > 0) ents.add(new Ent(s.gui ? s.name : s.name + " [" + s.area + "]", t, () -> pick(s)));
             }
             if (ents.isEmpty()) emptyMsg = "Not in this filter";
-        } else if (!q.isEmpty()) {
+        } else {
             Map<String, Integer> names = new HashMap<>();
             for (Stash s : S.stashes) {
                 if (cat != null && !cat.equals(s.category)) continue;
-                for (Item i : s.items) if (matches(i, q)) names.merge(i.name, i.count, Integer::sum);
+                for (Item i : s.items) if (q.isEmpty() || matches(i, q)) names.merge(i.name, i.count, Integer::sum);
             }
             int best = -1;
             for (var e : names.entrySet()) {
@@ -179,9 +192,7 @@ final class SearchBar {
                 if (e.getValue() > best) { best = e.getValue(); top = n; }
                 ents.add(new Ent(n, e.getValue(), () -> { chosen = n; notice = null; page = 0; refresh(); }));
             }
-            if (ents.isEmpty()) emptyMsg = "Nothing found in tracked chests";
-        } else {
-            emptyMsg = "Type an item name";
+            if (ents.isEmpty()) emptyMsg = S.stashes.isEmpty() ? "No chests tracked yet" : "Nothing found in tracked chests";
         }
 
         if (sortAz) ents.sort(Comparator.comparing(e -> e.label().toLowerCase()));
