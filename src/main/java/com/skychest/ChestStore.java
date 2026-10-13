@@ -34,6 +34,7 @@ public final class ChestStore {
     public List<String> tracked = new ArrayList<>(List.of("Ender Chest", "Backpack")); // menu titles (contains) to remember automatically
     public List<String> presets = new ArrayList<>(List.of("Farming", "Mining", "Minions", "Slayers", "Dragons", "Fishing", "Foraging", "Combat", "Misc"));
     public String area = "Private Island";
+    public int edgeGap = 28;                           // GUI px kept free above/below the inventory for other mods' tab strips
     public boolean anyServer;                          // debug: work outside Hypixel
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
